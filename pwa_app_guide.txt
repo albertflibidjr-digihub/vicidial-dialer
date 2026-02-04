@@ -1,0 +1,369 @@
+=================================================================
+VICIdial Dialer - Progressive Web App (PWA) Guide
+=================================================================
+
+WHAT IS THIS?
+This is a full-featured mobile/web APP for VICIdial that works like
+a native app on your phone, tablet, or desktop!
+
+=================================================================
+KEY FEATURES:
+=================================================================
+
+📱 INSTALLABLE AS APP
+• Add to home screen on iPhone/Android
+• Works like a native app
+• No app store needed!
+
+🔌 OFFLINE READY
+• Works without internet (for UI)
+• Saves contacts locally
+• Tracks call history
+
+📞 FULL CALL CENTER FEATURES
+• Phone dialpad (0-9, *, #)
+• DIAL, HANGUP, DISPOSITION buttons
+• Real-time call status
+• Call duration timer
+
+👥 CONTACT MANAGEMENT
+• Save frequently called contacts
+• Quick dial from contact list
+• Add notes to contacts
+
+📊 CALL HISTORY
+• Tracks last 100 calls
+• View call outcomes
+• Re-dial from history
+
+⚙️ FULL VICIdial INTEGRATION
+• external_dial API
+• external_hangup API
+• external_status API
+
+=================================================================
+FILES INCLUDED:
+=================================================================
+
+1. vicidial_app.html - Main app file
+2. app.js - Application logic
+3. manifest.json - PWA configuration
+4. sw.js - Service Worker (for offline support)
+
+=================================================================
+QUICK SETUP:
+=================================================================
+
+OPTION 1: Use as Web App (Simplest)
+------------------------------------
+1. Upload ALL 4 files to a web server
+2. Visit vicidial_app.html in your browser
+3. Configure settings (tap menu ☰ > Settings)
+4. Start calling!
+
+OPTION 2: Install as Mobile App (Recommended)
+----------------------------------------------
+1. Upload ALL 4 files to a web server
+2. Open vicidial_app.html on your phone
+3. Install prompt appears - tap "Install"
+4. App icon appears on home screen
+5. Launch like any other app!
+
+OPTION 3: Install on iPhone
+----------------------------
+1. Open vicidial_app.html in Safari
+2. Tap Share button (box with arrow)
+3. Tap "Add to Home Screen"
+4. Tap "Add"
+5. App appears on home screen!
+
+=================================================================
+HOSTING OPTIONS:
+=================================================================
+
+FREE OPTIONS:
+• GitHub Pages (github.com)
+• Netlify (netlify.com)
+• Vercel (vercel.com)
+• Firebase Hosting (firebase.google.com)
+
+PAID OPTIONS:
+• Any web hosting service
+• Your company's web server
+• Cloud services (AWS, Azure, Google Cloud)
+
+=================================================================
+HOW TO HOST ON GITHUB PAGES (FREE):
+=================================================================
+
+1. Create GitHub account (free)
+2. Create new repository
+3. Upload all 4 files
+4. Go to Settings > Pages
+5. Enable GitHub Pages
+6. Your app URL: https://username.github.io/repo-name/vicidial_app.html
+
+=================================================================
+FIRST TIME SETUP:
+=================================================================
+
+1. Open the app
+2. Tap menu (☰) in top right
+3. Tap "Settings"
+4. Enter your VICIdial details:
+   - Server URL
+   - Username
+   - Password
+   - Campaign ID
+   - Agent Extension
+   - Phone Code
+5. Tap "Save Settings"
+6. Tap "Test Connection" to verify
+
+=================================================================
+USING THE APP:
+=================================================================
+
+MAKING A CALL:
+1. Tap numbers on dialpad OR type on keyboard
+2. Tap "📞 DIAL" button
+3. Call connects to VICIdial
+4. Talk to customer
+5. Tap "📵 HANGUP" when done
+6. Tap "📋 SET DISPOSITION"
+7. Select outcome
+8. Ready for next call!
+
+MANAGING CONTACTS:
+1. Tap "📋" tab at bottom
+2. Tap "+ Add" button
+3. Enter name and phone
+4. Tap "Add Contact"
+5. Tap 📞 icon to dial contact
+
+VIEWING HISTORY:
+1. Tap "📊" tab at bottom
+2. See recent calls
+3. Tap 📞 to redial
+
+=================================================================
+APP TABS:
+=================================================================
+
+📞 Dialpad
+└─ Main calling interface
+
+📋 Contacts
+└─ Saved contacts list
+
+📊 History
+└─ Recent call history
+
+=================================================================
+MENU OPTIONS:
+=================================================================
+
+⚙️ Settings
+└─ Configure VICIdial connection
+
+🔌 Test Connection
+└─ Verify server connectivity
+
+📊 Call History
+└─ View recent calls
+
+🗑️ Clear All Data
+└─ Delete contacts and history
+
+ℹ️ About
+└─ App information
+
+=================================================================
+FEATURES IN DETAIL:
+=================================================================
+
+AUTO-SAVE:
+• Settings saved automatically
+• Contacts persist
+• History tracked locally
+• Works offline
+
+PHONE NUMBER FORMATTING:
+• Automatically formats as you type
+• Displays: (555) 123-4567
+• Handles country codes
+
+CALL TIMER:
+• Shows call duration
+• Updates every second
+• MM:SS format
+
+STATUS INDICATORS:
+• Ready (Green) - Ready to call
+• Calling (Orange) - Dialing
+• Connected (Blue) - On call
+• Error (Red) - Call failed
+
+=================================================================
+TIPS & TRICKS:
+=================================================================
+
+KEYBOARD SHORTCUTS:
+• Type 0-9 to enter numbers
+• Press * and # directly
+• Backspace to delete
+• Enter to dial
+
+QUICK DIAL:
+• Copy phone from anywhere
+• Paste into dialpad
+• Auto-formats
+
+SAVE FREQUENT CONTACTS:
+• Add contacts you call often
+• One-tap to dial
+• No need to memorize numbers
+
+=================================================================
+TROUBLESHOOTING:
+=================================================================
+
+App won't install:
+• Make sure using HTTPS URL
+• Try different browser
+• For iPhone: must use Safari
+
+Calls fail:
+• Tap menu > Test Connection
+• Verify VICIdial settings
+• Check you're logged into VICIdial
+• Ensure campaign is active
+
+Settings won't save:
+• Check browser allows localStorage
+• Disable private browsing
+• Try clearing cache
+
+CORS errors:
+• VICIdial server needs CORS enabled
+• Contact your VICIdial admin
+• May need server configuration
+
+=================================================================
+OFFLINE FUNCTIONALITY:
+=================================================================
+
+WORKS OFFLINE:
+• View app interface
+• Browse contacts
+• View call history
+• Update settings
+
+REQUIRES INTERNET:
+• Making calls
+• Hanging up
+• Setting dispositions
+• Testing connection
+
+=================================================================
+SECURITY & PRIVACY:
+=================================================================
+
+DATA STORAGE:
+• All data stored locally on device
+• Settings in browser localStorage
+• Contacts and history local only
+• No cloud sync
+
+CREDENTIALS:
+• Stored in browser storage
+• Not encrypted by default
+• Same security as browser
+• Delete if selling device
+
+RECOMMENDATIONS:
+• Use HTTPS for VICIdial server
+• Don't use on public computers
+• Clear data when done (menu > Clear All Data)
+• Use strong passwords
+
+=================================================================
+UPDATING THE APP:
+=================================================================
+
+To update when new version available:
+1. Download new files
+2. Replace old files on server
+3. Clear browser cache
+4. Reload app
+5. Settings preserved
+
+=================================================================
+ADVANCED: CUSTOM BRANDING:
+=================================================================
+
+In vicidial_app.html, you can customize:
+
+APP NAME:
+<title>VICIdial Dialer App</title>
+Change to your company name
+
+COLORS:
+--primary: #667eea;
+--secondary: #764ba2;
+Change to your brand colors
+
+LOGO:
+Replace icon in manifest.json
+Add your company logo
+
+DISPOSITIONS:
+Edit DISPOSITIONS array in app.js
+Match your VICIdial campaign
+
+=================================================================
+SYSTEM REQUIREMENTS:
+=================================================================
+
+BROWSERS:
+• Chrome 80+
+• Safari 13+
+• Firefox 75+
+• Edge 80+
+
+DEVICES:
+• iPhone 6+ (iOS 13+)
+• Android 7.0+
+• Windows 10+
+• macOS 10.14+
+
+INTERNET:
+• Required for API calls
+• Offline mode for UI only
+
+=================================================================
+SUPPORT:
+=================================================================
+
+Check browser console:
+• F12 or right-click > Inspect
+• Console tab
+• Look for error messages
+
+Verify VICIdial:
+• Log into VICIdial web interface
+• Ensure agent is logged in
+• Check campaign is active
+• Verify API is enabled
+
+Test connectivity:
+• Tap menu > Test Connection
+• Should see "Connected" message
+• If fails, check server URL
+
+=================================================================
+
+Enjoy your VICIdial Progressive Web App!
+A professional call center experience on any device.
+
+=================================================================
