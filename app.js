@@ -590,7 +590,7 @@ async function setDisposition(code) {
 
         setTimeout(() => {
             pauseAgent();
-        }, 500);
+        }, 2000);
     } else {
         showNotification('Failed to set disposition: ' + result.message, 'error');
     }
