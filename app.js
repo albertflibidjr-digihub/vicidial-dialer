@@ -1,77 +1,350 @@
-// VICIdial Dialer App - JavaScript
-// Progressive Web App with offline support
+// VICIdial Dialpad Application
+// Main JavaScript Logic
 
-// App State
+// State Management
+let agentInfo = null;
 let currentNumber = '';
 let callStartTime = null;
 let callTimer = null;
-let deferredPrompt = null;
+let isPaused = false;
 
-// Default dispositions
-const DISPOSITIONS = [
-    { code: 'SALE', description: 'Successful Sale' },
-    { code: 'CALLBK', description: 'Call Back Later' },
-    { code: 'NI', description: 'Not Interested' },
-    { code: 'DNC', description: 'Do Not Call' },
-    { code: 'NA', description: 'No Answer' },
-    { code: 'BUSY', description: 'Line Busy' },
-    { code: 'VM', description: 'Voicemail' },
-    { code: 'DROP', description: 'Dropped Call' },
-    { code: 'DISC', description: 'Disconnected Number' },
-    { code: 'LANG', description: 'Language Barrier' }
-];
+// DOM Elements
+const loginScreen = document.getElementById('loginScreen');
+const dialpadScreen = document.getElementById('dialpadScreen');
+const loginForm = document.getElementById('loginForm');
+const displayInput = document.getElementById('displayNumber');
 
-// Initialize App
-document.addEventListener('DOMContentLoaded', () => {
-    loadSettings();
-    loadContacts();
+// Initialize app on load
+document.addEventListener('DOMContentLoaded', function () {
+    // Check for saved credentials
+    loadSavedCredentials();
+
+    // Setup login form
+    loginForm.addEventListener('submit', handleLogin);
+
+    // Setup dialpad input
+    setupDialpadInput();
+
+    // Load dispositions
     loadDispositions();
-    checkInstallPrompt();
-    registerServiceWorker();
+
+    // Keyboard shortcuts
+    setupKeyboardShortcuts();
 });
 
-// Settings Management
-function loadSettings() {
-    const settings = localStorage.getItem('vicidialSettings');
-    if (settings) {
-        const data = JSON.parse(settings);
-        document.getElementById('serverUrl').value = data.serverUrl || '';
-        document.getElementById('username').value = data.username || '';
-        document.getElementById('password').value = data.password || '';
-        document.getElementById('campaignId').value = data.campaignId || '';
-        document.getElementById('agentExtension').value = data.agentExtension || '';
-        document.getElementById('phoneCode').value = data.phoneCode || '1';
+// ============================================
+// Authentication & Session Management
+// ============================================
+
+function loadSavedCredentials() {
+    const saved = localStorage.getItem('vicidial_agent');
+    if (saved) {
+        try {
+            const data = JSON.parse(saved);
+            const cacheAge = Date.now() - data.timestamp;
+
+            // If cache is still valid (30 minutes)
+            if (cacheAge < VICIDIAL_CONFIG.cacheDuration) {
+                agentInfo = data;
+                showDialpad();
+                return;
+            }
+        } catch (e) {
+            console.error('Error loading saved credentials:', e);
+        }
+    }
+    showLogin();
+}
+
+function saveCredentials(credentials) {
+    credentials.timestamp = Date.now();
+    localStorage.setItem('vicidial_agent', JSON.stringify(credentials));
+    agentInfo = credentials;
+}
+
+function clearCredentials() {
+    localStorage.removeItem('vicidial_agent');
+    agentInfo = null;
+}
+
+async function handleLogin(e) {
+    e.preventDefault();
+
+    const credentials = {
+        agentName: document.getElementById('agentName').value.trim(),
+        user: document.getElementById('username').value.trim(),
+        password: document.getElementById('password').value,
+        extension: document.getElementById('extension').value.trim(),
+        serverUrl: document.getElementById('serverUrl').value.trim()
+    };
+
+    // Validate
+    if (!credentials.agentName || !credentials.user || !credentials.password ||
+        !credentials.extension || !credentials.serverUrl) {
+        showLoginStatus('Please fill in all fields', 'error');
+        return;
+    }
+
+    showLoginStatus('Verifying credentials...', 'info');
+
+    try {
+        const result = await testConnection(credentials);
+
+        if (result.success) {
+            saveCredentials(credentials);
+            showLoginStatus('Login successful!', 'success');
+            setTimeout(() => {
+                showDialpad();
+            }, 500);
+        } else {
+            showLoginStatus('Login failed: ' + result.message, 'error');
+        }
+    } catch (error) {
+        showLoginStatus('Connection error: ' + error.message, 'error');
     }
 }
 
-function saveSettings() {
-    const settings = {
-        serverUrl: document.getElementById('serverUrl').value,
-        username: document.getElementById('username').value,
-        password: document.getElementById('password').value,
-        campaignId: document.getElementById('campaignId').value,
-        agentExtension: document.getElementById('agentExtension').value,
-        phoneCode: document.getElementById('phoneCode').value
-    };
-    
-    localStorage.setItem('vicidialSettings', JSON.stringify(settings));
-    closeModal('settingsModal');
-    showToast('Settings saved successfully!', 'success');
+function logout() {
+    if (confirm('Are you sure you want to logout?')) {
+        clearCredentials();
+        resetDialpad();
+        showLogin();
+    }
 }
 
-function getSettings() {
-    const settings = localStorage.getItem('vicidialSettings');
-    return settings ? JSON.parse(settings) : {};
+function showLogin() {
+    loginScreen.classList.add('active');
+    dialpadScreen.classList.remove('active');
 }
 
-// Dialpad Functions
+function showDialpad() {
+    loginScreen.classList.remove('active');
+    dialpadScreen.classList.add('active');
+
+    // Update UI with agent info
+    document.getElementById('agentNameDisplay').textContent =
+        `👤 Agent: ${agentInfo.agentName}`;
+
+    // Focus on number input
+    displayInput.focus();
+}
+
+function showLoginStatus(message, type) {
+    const statusDiv = document.getElementById('loginStatus');
+    statusDiv.textContent = message;
+    statusDiv.className = 'status-message ' + type + ' active';
+
+    if (type === 'success') {
+        setTimeout(() => {
+            statusDiv.classList.remove('active');
+        }, 2000);
+    }
+}
+
+// ============================================
+// VICIdial API Functions
+// ============================================
+
+async function testConnection(credentials = agentInfo) {
+    try {
+        const params = {
+            source: 'webdialpad',
+            function: 'version',
+            user: credentials.user,
+            pass: credentials.password
+        };
+
+        const url = buildApiUrl(credentials.serverUrl, params);
+        const response = await fetch(url);
+        const text = await response.text();
+
+        console.log('VICIdial test response:', text);
+
+        if (text.includes('VERSION') || text.includes('SUCCESS') || response.ok) {
+            return { success: true, message: 'Connected' };
+        } else if (text.includes('INVALID') || text.includes('ERROR')) {
+            return { success: false, message: 'Invalid credentials' };
+        } else {
+            return { success: false, message: text };
+        }
+    } catch (error) {
+        console.error('Connection test error:', error);
+        return { success: false, message: error.message };
+    }
+}
+
+async function makeCallApi(phoneNumber) {
+    try {
+        const params = {
+            source: 'webdialpad',
+            user: agentInfo.user,
+            pass: agentInfo.password,
+            agent_user: agentInfo.user,
+            function: 'external_dial',
+            value: phoneNumber,
+            phone_code: VICIDIAL_CONFIG.phoneCode,
+            search: 'NO',
+            preview: 'NO',
+            focus: 'YES'
+        };
+
+        const url = buildApiUrl(agentInfo.serverUrl, params);
+        const response = await fetch(url);
+        const text = await response.text();
+
+        console.log('VICIdial dial response:', text);
+
+        if (text.includes('SUCCESS')) {
+            return { success: true, message: 'Call connected' };
+        } else {
+            return { success: false, message: text };
+        }
+    } catch (error) {
+        console.error('Dial error:', error);
+        return { success: false, message: error.message };
+    }
+}
+
+async function hangupCallApi() {
+    try {
+        const params = {
+            source: 'webdialpad',
+            user: agentInfo.user,
+            pass: agentInfo.password,
+            agent_user: agentInfo.user,
+            function: 'external_hangup',
+            value: '1'
+        };
+
+        const url = buildApiUrl(agentInfo.serverUrl, params);
+        const response = await fetch(url);
+        const text = await response.text();
+
+        console.log('VICIdial hangup response:', text);
+
+        if (text.includes('SUCCESS')) {
+            return { success: true, message: 'Call ended' };
+        } else {
+            return { success: false, message: text };
+        }
+    } catch (error) {
+        console.error('Hangup error:', error);
+        return { success: false, message: error.message };
+    }
+}
+
+async function setDispositionApi(code) {
+    try {
+        const params = {
+            source: 'webdialpad',
+            user: agentInfo.user,
+            pass: agentInfo.password,
+            agent_user: agentInfo.user,
+            function: 'external_status',
+            value: code
+        };
+
+        const url = buildApiUrl(agentInfo.serverUrl, params);
+        const response = await fetch(url);
+        const text = await response.text();
+
+        console.log('VICIdial status response:', text);
+
+        if (text.includes('SUCCESS')) {
+            return { success: true, message: 'Disposition set' };
+        } else {
+            return { success: false, message: text };
+        }
+    } catch (error) {
+        console.error('Disposition error:', error);
+        return { success: false, message: error.message };
+    }
+}
+
+async function pauseAgentApi() {
+    try {
+        const params = {
+            source: 'webdialpad',
+            user: agentInfo.user,
+            pass: agentInfo.password,
+            agent_user: agentInfo.user,
+            function: 'external_pause',
+            value: 'PAUSE'
+        };
+
+        const url = buildApiUrl(agentInfo.serverUrl, params);
+        const response = await fetch(url);
+        const text = await response.text();
+
+        console.log('VICIdial pause response:', text);
+
+        if (text.includes('SUCCESS')) {
+            return { success: true, message: 'Agent paused' };
+        } else {
+            return { success: false, message: text };
+        }
+    } catch (error) {
+        console.error('Pause error:', error);
+        return { success: false, message: error.message };
+    }
+}
+
+function buildApiUrl(serverUrl, params) {
+    const queryString = Object.keys(params)
+        .map(key => encodeURIComponent(key) + '=' + encodeURIComponent(params[key]))
+        .join('&');
+
+    return `${serverUrl}${VICIDIAL_CONFIG.apiPath}?${queryString}`;
+}
+
+// ============================================
+// Dialpad UI Functions
+// ============================================
+
+function setupDialpadInput() {
+    displayInput.addEventListener('input', function (e) {
+        currentNumber = cleanPhoneNumber(e.target.value);
+        updateDisplay();
+    });
+
+    displayInput.addEventListener('paste', function (e) {
+        setTimeout(() => {
+            currentNumber = cleanPhoneNumber(e.target.value);
+            updateDisplay();
+            showNotification('Number pasted', 'success');
+        }, 10);
+    });
+}
+
+function setupKeyboardShortcuts() {
+    document.addEventListener('keydown', function (e) {
+        // If typing in input, allow normal behavior
+        if (document.activeElement === displayInput) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                makeCall();
+            }
+            return;
+        }
+
+        // Global shortcuts
+        if (/^[0-9*#]$/.test(e.key)) {
+            e.preventDefault();
+            addDigit(e.key);
+        }
+        if (e.key === 'Backspace' || e.key === 'Delete') {
+            e.preventDefault();
+            clearNumber();
+        }
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            makeCall();
+        }
+    });
+}
+
 function addDigit(digit) {
     currentNumber += digit;
-    updateDisplay();
-}
-
-function backspace() {
-    currentNumber = currentNumber.slice(0, -1);
     updateDisplay();
 }
 
@@ -81,184 +354,125 @@ function clearNumber() {
 }
 
 function updateDisplay() {
-    const display = document.getElementById('displayNumber');
-    if (currentNumber === '') {
-        display.textContent = 'Enter Number';
-        display.classList.add('empty');
-    } else {
-        display.textContent = formatPhoneNumber(currentNumber);
-        display.classList.remove('empty');
-    }
+    displayInput.value = formatPhoneNumber(currentNumber);
+}
+
+function cleanPhoneNumber(value) {
+    return value.replace(/[^\d*#+]/g, '');
 }
 
 function formatPhoneNumber(number) {
     const cleaned = number.replace(/\D/g, '');
+
     if (cleaned.length === 10) {
         return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6)}`;
     } else if (cleaned.length === 11 && cleaned[0] === '1') {
         return `+1 (${cleaned.slice(1, 4)}) ${cleaned.slice(4, 7)}-${cleaned.slice(7)}`;
     }
+
     return number;
 }
 
-// Call Functions
-async function makeCall() {
-    if (currentNumber === '') {
-        showToast('Please enter a phone number', 'error');
-        return;
-    }
-
-    const settings = getSettings();
-    if (!settings.serverUrl || !settings.username) {
-        showToast('Please configure VICIdial settings first', 'error');
-        showSettingsModal();
-        return;
-    }
-
-    const phoneNumber = currentNumber.replace(/\D/g, '');
-    if (phoneNumber.length < 10) {
-        showToast('Phone number must be at least 10 digits', 'error');
-        return;
-    }
-
-    const fullNumber = phoneNumber.length === 10 
-        ? settings.phoneCode + phoneNumber 
-        : phoneNumber;
-
-    updateStatus('Calling...', 'status-calling');
-    document.getElementById('callBtn').disabled = true;
-    showSpinner();
-
-    try {
-        const apiUrl = settings.serverUrl + '/agc/api.php';
-        const params = new URLSearchParams({
-            source: 'vicidial_app',
-            function: 'external_dial',
-            user: settings.username,
-            pass: settings.password,
-            agent_user: settings.username,
-            value: fullNumber,
-            phone_code: settings.phoneCode,
-            search: 'NO',
-            preview: 'NO',
-            focus: 'YES',
-            vendor_lead_code: 'APP_' + Date.now(),
-            list_id: '999',
-            phone_number: fullNumber,
-            campaign: settings.campaignId
-        });
-
-        const response = await fetch(apiUrl + '?' + params.toString());
-        const text = await response.text();
-
-        console.log('VICIdial Response:', text);
-        hideSpinner();
-
-        if (text.includes('SUCCESS')) {
-            updateStatus('Connected', 'status-connected');
-            document.getElementById('hangupBtn').disabled = false;
-            document.getElementById('dispositionBtn').disabled = false;
-            
-            document.getElementById('callInfo').classList.add('active');
-            document.getElementById('callingNumber').textContent = formatPhoneNumber(fullNumber);
-            
-            startCallTimer();
-            saveCallHistory(fullNumber, 'Connected');
-            showToast('Call connected successfully!', 'success');
-        } else {
-            updateStatus('Call Failed', 'status-error');
-            document.getElementById('callBtn').disabled = false;
-            saveCallHistory(fullNumber, 'Failed');
-            showToast('Call failed: ' + text, 'error');
-        }
-    } catch (error) {
-        hideSpinner();
-        updateStatus('Error', 'status-error');
-        document.getElementById('callBtn').disabled = false;
-        showToast('Error: ' + error.message, 'error');
-    }
-}
-
-async function hangupCall() {
-    const settings = getSettings();
-    updateStatus('Hanging up...', 'status-calling');
-
-    try {
-        const apiUrl = settings.serverUrl + '/agc/api.php';
-        const params = new URLSearchParams({
-            source: 'vicidial_app',
-            function: 'external_hangup',
-            user: settings.username,
-            pass: settings.password,
-            agent_user: settings.username,
-            value: 'HANGUP',
-            campaign: settings.campaignId
-        });
-
-        const response = await fetch(apiUrl + '?' + params.toString());
-        const text = await response.text();
-
-        console.log('VICIdial Hangup Response:', text);
-
-        if (text.includes('SUCCESS')) {
-            updateStatus('Call Ended', 'status-ready');
-            document.getElementById('hangupBtn').disabled = true;
-            stopCallTimer();
-            showToast('Call hung up successfully', 'success');
-        } else {
-            showToast('Hangup failed: ' + text, 'error');
-        }
-    } catch (error) {
-        showToast('Error: ' + error.message, 'error');
-    }
-}
-
-async function setDisposition(code) {
-    const settings = getSettings();
-    const phoneNumber = currentNumber;
-    
-    closeModal('dispositionModal');
-    updateStatus('Setting disposition...', 'status-calling');
-
-    try {
-        const apiUrl = settings.serverUrl + '/agc/api.php';
-        const params = new URLSearchParams({
-            source: 'vicidial_app',
-            function: 'external_status',
-            user: settings.username,
-            pass: settings.password,
-            agent_user: settings.username,
-            value: code,
-            campaign: settings.campaignId
-        });
-
-        const response = await fetch(apiUrl + '?' + params.toString());
-        const text = await response.text();
-
-        console.log('VICIdial Status Response:', text);
-
-        if (text.includes('SUCCESS')) {
-            updateStatus('Ready', 'status-ready');
-            document.getElementById('callBtn').disabled = false;
-            document.getElementById('dispositionBtn').disabled = true;
-            document.getElementById('callInfo').classList.remove('active');
-            
-            updateCallHistory(phoneNumber, code);
-            clearNumber();
-            showToast('Disposition set to: ' + code, 'success');
-        } else {
-            showToast('Failed to set disposition: ' + text, 'error');
-        }
-    } catch (error) {
-        showToast('Error: ' + error.message, 'error');
-    }
-}
-
-// Status and Timer
 function updateStatus(text, className) {
     const badge = document.getElementById('statusBadge');
     badge.textContent = text;
     badge.className = 'status-badge ' + className;
+}
+
+function showNotification(message, type) {
+    const notification = document.getElementById('notification');
+    notification.textContent = message;
+    notification.className = `notification ${type} active`;
+
+    setTimeout(() => {
+        notification.classList.remove('active');
+    }, 3000);
+}
+
+// ============================================
+// Call Control Functions
+// ============================================
+
+async function makeCall() {
+    if (!currentNumber) {
+        showNotification('Enter a phone number', 'error');
+        return;
+    }
+
+    // Clean and validate phone number
+    let cleanNumber = currentNumber.replace(/\D/g, '');
+
+    // Remove leading 1 if 11 digits
+    if (cleanNumber.length === 11 && cleanNumber[0] === '1') {
+        cleanNumber = cleanNumber.substring(1);
+    }
+
+    if (cleanNumber.length !== 10) {
+        showNotification('Phone number must be 10 digits', 'error');
+        return;
+    }
+
+    updateStatus('Calling...', 'status-calling');
+    document.getElementById('callBtn').disabled = true;
+
+    const result = await makeCallApi(cleanNumber);
+
+    if (result.success) {
+        updateStatus('Connected', 'status-connected');
+        document.getElementById('hangupBtn').disabled = false;
+        document.getElementById('dispositionBtn').disabled = false;
+        document.getElementById('pauseBtn').disabled = false;
+
+        // Show call info
+        document.getElementById('callInfo').classList.add('active');
+        document.getElementById('callingNumber').textContent = formatPhoneNumber(cleanNumber);
+
+        startCallTimer();
+        showNotification(`Call connected! (${agentInfo.agentName})`, 'success');
+    } else {
+        updateStatus('Failed', 'status-error');
+        document.getElementById('callBtn').disabled = false;
+        showNotification('Call failed: ' + result.message, 'error');
+    }
+}
+
+async function hangupCall() {
+    updateStatus('Hanging up...', 'status-calling');
+
+    const result = await hangupCallApi();
+
+    if (result.success) {
+        updateStatus('Call Ended', 'status-ready');
+        document.getElementById('hangupBtn').disabled = true;
+
+        stopCallTimer();
+        showNotification(result.message, 'success');
+
+        // Auto-show disposition modal
+        showDispositionModal();
+    } else {
+        showNotification('Hangup failed: ' + result.message, 'error');
+    }
+}
+
+async function pauseAgent() {
+    const pauseBtn = document.getElementById('pauseBtn');
+    pauseBtn.disabled = true;
+
+    updateStatus('Pausing...', 'status-calling');
+
+    const result = await pauseAgentApi();
+
+    if (result.success) {
+        updateStatus('Paused', 'status-paused');
+        pauseBtn.textContent = '⏸️ PAUSED';
+        isPaused = true;
+        showNotification(result.message, 'success');
+    } else {
+        updateStatus('Ready', 'status-ready');
+        showNotification('Failed to pause: ' + result.message, 'error');
+        pauseBtn.disabled = false;
+    }
 }
 
 function startCallTimer() {
@@ -267,7 +481,8 @@ function startCallTimer() {
         const elapsed = Math.floor((Date.now() - callStartTime) / 1000);
         const minutes = Math.floor(elapsed / 60);
         const seconds = elapsed % 60;
-        document.getElementById('callDuration').textContent = 
+
+        document.getElementById('callDuration').textContent =
             `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
     }, 1000);
 }
@@ -280,68 +495,14 @@ function stopCallTimer() {
     callStartTime = null;
 }
 
-// UI Functions
-function toggleMenu() {
-    document.getElementById('sideMenu').classList.toggle('active');
-    document.getElementById('menuOverlay').classList.toggle('active');
-}
+// ============================================
+// Disposition Functions
+// ============================================
 
-function switchTab(tab) {
-    const navItems = document.querySelectorAll('.nav-item');
-    navItems.forEach(item => item.classList.remove('active'));
-    event.currentTarget.classList.add('active');
-
-    if (tab === 'contacts') {
-        document.getElementById('callListSection').classList.add('active');
-    } else {
-        document.getElementById('callListSection').classList.remove('active');
-    }
-
-    if (tab === 'history') {
-        viewHistory();
-    }
-}
-
-function showSettingsModal() {
-    toggleMenu();
-    document.getElementById('settingsModal').classList.add('active');
-}
-
-function showDispositionModal() {
-    document.getElementById('dispositionModal').classList.add('active');
-}
-
-function showAddContactModal() {
-    document.getElementById('addContactModal').classList.add('active');
-}
-
-function closeModal(modalId) {
-    document.getElementById(modalId).classList.remove('active');
-}
-
-function showToast(message, type) {
-    const toast = document.getElementById('toast');
-    toast.textContent = message;
-    toast.className = `toast ${type} active`;
-    
-    setTimeout(() => {
-        toast.classList.remove('active');
-    }, 3000);
-}
-
-function showSpinner() {
-    document.getElementById('spinner').classList.add('active');
-}
-
-function hideSpinner() {
-    document.getElementById('spinner').classList.remove('active');
-}
-
-// Dispositions
 function loadDispositions() {
     const list = document.getElementById('dispositionList');
     list.innerHTML = '';
-    
+
     DISPOSITIONS.forEach(disp => {
         const btn = document.createElement('div');
         btn.className = 'disposition-btn';
@@ -354,233 +515,52 @@ function loadDispositions() {
     });
 }
 
-// Contacts Management
-function loadContacts() {
-    const contacts = JSON.parse(localStorage.getItem('contacts') || '[]');
-    const list = document.getElementById('contactList');
-    list.innerHTML = '';
-
-    if (contacts.length === 0) {
-        list.innerHTML = '<p style="text-align: center; color: #999; padding: 20px;">No contacts yet. Add your first contact!</p>';
-        return;
-    }
-
-    contacts.forEach((contact, index) => {
-        const item = document.createElement('div');
-        item.className = 'contact-item';
-        item.innerHTML = `
-            <div class="contact-info">
-                <div class="contact-name">${contact.name}</div>
-                <div class="contact-phone">${formatPhoneNumber(contact.phone)}</div>
-            </div>
-            <div class="contact-actions">
-                <button class="icon-btn" onclick="dialContact('${contact.phone}')">📞</button>
-                <button class="icon-btn" onclick="deleteContact(${index})">🗑️</button>
-            </div>
-        `;
-        list.appendChild(item);
-    });
+function showDispositionModal() {
+    document.getElementById('dispositionModal').classList.add('active');
 }
 
-function addContact() {
-    const name = document.getElementById('contactName').value;
-    const phone = document.getElementById('contactPhone').value;
-    const notes = document.getElementById('contactNotes').value;
-
-    if (!name || !phone) {
-        showToast('Please enter name and phone number', 'error');
-        return;
-    }
-
-    const contacts = JSON.parse(localStorage.getItem('contacts') || '[]');
-    contacts.push({ name, phone, notes, added: new Date().toISOString() });
-    localStorage.setItem('contacts', JSON.stringify(contacts));
-
-    document.getElementById('contactName').value = '';
-    document.getElementById('contactPhone').value = '';
-    document.getElementById('contactNotes').value = '';
-
-    closeModal('addContactModal');
-    loadContacts();
-    showToast('Contact added successfully!', 'success');
+function closeDispositionModal() {
+    document.getElementById('dispositionModal').classList.remove('active');
 }
 
-function dialContact(phone) {
-    currentNumber = phone;
-    updateDisplay();
-    switchTab('dialpad');
-    document.querySelector('.nav-item').click();
-}
+async function setDisposition(code) {
+    closeDispositionModal();
+    updateStatus('Setting...', 'status-calling');
 
-function deleteContact(index) {
-    if (confirm('Delete this contact?')) {
-        const contacts = JSON.parse(localStorage.getItem('contacts') || '[]');
-        contacts.splice(index, 1);
-        localStorage.setItem('contacts', JSON.stringify(contacts));
-        loadContacts();
-        showToast('Contact deleted', 'info');
-    }
-}
+    const result = await setDispositionApi(code);
 
-// Call History
-function saveCallHistory(phone, status) {
-    const history = JSON.parse(localStorage.getItem('callHistory') || '[]');
-    history.unshift({
-        phone,
-        status,
-        timestamp: new Date().toISOString(),
-        disposition: null
-    });
-    
-    // Keep only last 100 calls
-    if (history.length > 100) {
-        history.pop();
-    }
-    
-    localStorage.setItem('callHistory', JSON.stringify(history));
-}
+    if (result.success) {
+        updateStatus('Ready', 'status-ready');
+        document.getElementById('callBtn').disabled = false;
+        document.getElementById('dispositionBtn').disabled = true;
+        document.getElementById('callInfo').classList.remove('active');
 
-function updateCallHistory(phone, disposition) {
-    const history = JSON.parse(localStorage.getItem('callHistory') || '[]');
-    const call = history.find(c => c.phone.includes(phone.replace(/\D/g, '')));
-    if (call) {
-        call.disposition = disposition;
-        localStorage.setItem('callHistory', JSON.stringify(history));
-    }
-}
+        clearNumber();
+        showNotification(`Disposition set: ${code}`, 'success');
 
-function viewHistory() {
-    const history = JSON.parse(localStorage.getItem('callHistory') || '[]');
-    
-    if (history.length === 0) {
-        showToast('No call history yet', 'info');
-        return;
-    }
-
-    const historyHtml = history.slice(0, 20).map(call => {
-        const date = new Date(call.timestamp);
-        return `
-            <div class="contact-item">
-                <div class="contact-info">
-                    <div class="contact-name">${formatPhoneNumber(call.phone)}</div>
-                    <div class="contact-phone">${date.toLocaleString()} - ${call.disposition || call.status}</div>
-                </div>
-                <div class="contact-actions">
-                    <button class="icon-btn" onclick="dialContact('${call.phone}')">📞</button>
-                </div>
-            </div>
-        `;
-    }).join('');
-
-    const list = document.getElementById('contactList');
-    list.innerHTML = historyHtml;
-    document.getElementById('callListSection').classList.add('active');
-}
-
-// Test Connection
-async function testConnection() {
-    const settings = getSettings();
-    
-    if (!settings.serverUrl) {
-        showToast('Please configure server URL first', 'error');
-        showSettingsModal();
-        return;
-    }
-
-    toggleMenu();
-    showSpinner();
-
-    try {
-        const response = await fetch(settings.serverUrl + '/agc/api.php', {
-            method: 'GET'
-        });
-        
-        hideSpinner();
-        
-        if (response.ok || response.status === 404) {
-            showToast('✅ Connected to VICIdial server!', 'success');
-        } else {
-            showToast('⚠️ Server responded with status: ' + response.status, 'error');
-        }
-    } catch (error) {
-        hideSpinner();
-        showToast('❌ Could not connect: ' + error.message, 'error');
-    }
-}
-
-// Clear All Data
-function clearAllData() {
-    if (confirm('This will delete all contacts and call history. Continue?')) {
-        localStorage.removeItem('contacts');
-        localStorage.removeItem('callHistory');
-        loadContacts();
-        toggleMenu();
-        showToast('All data cleared', 'info');
-    }
-}
-
-// About
-function showAbout() {
-    toggleMenu();
-    alert('VICIdial Dialer App\nVersion 1.0\n\nA Progressive Web App for VICIdial manual calling.\n\nFeatures:\n• Offline support\n• Contact management\n• Call history\n• Installable on mobile');
-}
-
-// PWA Installation
-function checkInstallPrompt() {
-    // Check if running on iOS
-    const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent);
-    const isInStandaloneMode = ('standalone' in window.navigator) && (window.navigator.standalone);
-    
-    if (isIos && !isInStandaloneMode) {
+        // Auto-pause after disposition
         setTimeout(() => {
-            document.getElementById('iosBanner').classList.add('active');
-        }, 3000);
-    }
-
-    // For Android and other platforms
-    window.addEventListener('beforeinstallprompt', (e) => {
-        e.preventDefault();
-        deferredPrompt = e;
-        document.getElementById('installPrompt').classList.add('active');
-    });
-
-    document.getElementById('installBtn').addEventListener('click', async () => {
-        if (!deferredPrompt) {
-            return;
-        }
-
-        deferredPrompt.prompt();
-        const { outcome } = await deferredPrompt.userChoice;
-        
-        if (outcome === 'accepted') {
-            showToast('App installed successfully!', 'success');
-        }
-        
-        deferredPrompt = null;
-        document.getElementById('installPrompt').classList.remove('active');
-    });
-}
-
-// Service Worker Registration
-function registerServiceWorker() {
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js')
-            .then(reg => console.log('Service Worker registered', reg))
-            .catch(err => console.log('Service Worker registration failed', err));
+            pauseAgent();
+        }, 500);
+    } else {
+        showNotification('Failed to set disposition: ' + result.message, 'error');
     }
 }
 
-// Keyboard Support
-document.addEventListener('keydown', (e) => {
-    if (e.key >= '0' && e.key <= '9') {
-        addDigit(e.key);
-    } else if (e.key === '*' || e.key === '#') {
-        addDigit(e.key);
-    } else if (e.key === 'Backspace') {
-        backspace();
-    } else if (e.key === 'Enter') {
-        if (!document.getElementById('callBtn').disabled) {
-            makeCall();
-        }
-    }
-});
+// ============================================
+// Reset & Cleanup
+// ============================================
+
+function resetDialpad() {
+    clearNumber();
+    stopCallTimer();
+    updateStatus('Ready', 'status-ready');
+
+    document.getElementById('callBtn').disabled = false;
+    document.getElementById('hangupBtn').disabled = true;
+    document.getElementById('dispositionBtn').disabled = true;
+    document.getElementById('pauseBtn').disabled = true;
+    document.getElementById('callInfo').classList.remove('active');
+
+    isPaused = false;
+}
