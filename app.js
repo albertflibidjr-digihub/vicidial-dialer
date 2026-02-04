@@ -8,6 +8,10 @@ let callStartTime = null;
 let callTimer = null;
 let isPaused = false;
 
+// CORS Proxy URL - Set this to your Cloudflare Worker URL
+// Leave empty to make direct requests (requires VICIdial CORS configuration)
+const CORS_PROXY_URL = 'https://throbbing-snow-1357.albertflibidjr.workers.dev/'; // e.g., 'https://your-worker.workers.dev'
+
 // DOM Elements
 const loginScreen = document.getElementById('loginScreen');
 const dialpadScreen = document.getElementById('dialpadScreen');
@@ -100,7 +104,18 @@ async function handleLogin(e) {
             showLoginStatus('Login failed: ' + result.message, 'error');
         }
     } catch (error) {
-        showLoginStatus('Connection error: ' + error.message, 'error');
+        console.error('Login error:', error);
+
+        // Provide helpful error message based on error type
+        if (error.message.includes('CORS') || error.message.includes('fetch')) {
+            showLoginStatus(
+                'CORS Error: Cannot connect to VICIdial server. ' +
+                'Please configure CORS or use a proxy. See CORS_FIX.md for solutions.',
+                'error'
+            );
+        } else {
+            showLoginStatus('Connection error: ' + error.message, 'error');
+        }
     }
 }
 
@@ -145,6 +160,22 @@ function showLoginStatus(message, type) {
 // VICIdial API Functions
 // ============================================
 
+async function makeApiRequest(url) {
+    // If CORS proxy is configured, use it
+    if (CORS_PROXY_URL) {
+        const proxyUrl = `${CORS_PROXY_URL}?url=${encodeURIComponent(url)}`;
+        const response = await fetch(proxyUrl);
+        return response;
+    } else {
+        // Direct request (requires CORS configuration on VICIdial server)
+        const response = await fetch(url, {
+            mode: 'cors',
+            credentials: 'omit'
+        });
+        return response;
+    }
+}
+
 async function testConnection(credentials = agentInfo) {
     try {
         const params = {
@@ -155,7 +186,7 @@ async function testConnection(credentials = agentInfo) {
         };
 
         const url = buildApiUrl(credentials.serverUrl, params);
-        const response = await fetch(url);
+        const response = await makeApiRequest(url);
         const text = await response.text();
 
         console.log('VICIdial test response:', text);
@@ -169,7 +200,7 @@ async function testConnection(credentials = agentInfo) {
         }
     } catch (error) {
         console.error('Connection test error:', error);
-        return { success: false, message: error.message };
+        throw error;
     }
 }
 
@@ -189,7 +220,7 @@ async function makeCallApi(phoneNumber) {
         };
 
         const url = buildApiUrl(agentInfo.serverUrl, params);
-        const response = await fetch(url);
+        const response = await makeApiRequest(url);
         const text = await response.text();
 
         console.log('VICIdial dial response:', text);
@@ -217,7 +248,7 @@ async function hangupCallApi() {
         };
 
         const url = buildApiUrl(agentInfo.serverUrl, params);
-        const response = await fetch(url);
+        const response = await makeApiRequest(url);
         const text = await response.text();
 
         console.log('VICIdial hangup response:', text);
@@ -245,7 +276,7 @@ async function setDispositionApi(code) {
         };
 
         const url = buildApiUrl(agentInfo.serverUrl, params);
-        const response = await fetch(url);
+        const response = await makeApiRequest(url);
         const text = await response.text();
 
         console.log('VICIdial status response:', text);
@@ -273,7 +304,7 @@ async function pauseAgentApi() {
         };
 
         const url = buildApiUrl(agentInfo.serverUrl, params);
-        const response = await fetch(url);
+        const response = await makeApiRequest(url);
         const text = await response.text();
 
         console.log('VICIdial pause response:', text);
@@ -304,19 +335,15 @@ function buildApiUrl(serverUrl, params) {
 function setupDialpadInput() {
     displayInput.addEventListener('input', function (e) {
         currentNumber = cleanPhoneNumber(e.target.value);
-        // Don't reformat while typing - just store the cleaned version
-        // The formatted version will update on blur
     });
 
     displayInput.addEventListener('blur', function (e) {
-        // Format the display when user clicks away
         if (currentNumber) {
             updateDisplay();
         }
     });
 
     displayInput.addEventListener('focus', function (e) {
-        // Show unformatted number while editing
         if (currentNumber) {
             e.target.value = currentNumber;
         }
@@ -330,10 +357,8 @@ function setupDialpadInput() {
         }, 10);
     });
 
-    // Handle backspace/delete in the input field
     displayInput.addEventListener('keydown', function (e) {
         if (e.key === 'Backspace' || e.key === 'Delete') {
-            // Let the browser handle deletion naturally
             setTimeout(() => {
                 currentNumber = cleanPhoneNumber(e.target.value);
             }, 10);
@@ -343,26 +368,22 @@ function setupDialpadInput() {
 
 function setupKeyboardShortcuts() {
     document.addEventListener('keydown', function (e) {
-        // If typing in any input field (login or dialpad), allow normal behavior
         const activeElement = document.activeElement;
         const isInputField = activeElement.tagName === 'INPUT' ||
             activeElement.tagName === 'TEXTAREA';
 
         if (isInputField) {
-            // Only handle Enter key for dialpad number input
             if (e.key === 'Enter' && activeElement === displayInput) {
                 e.preventDefault();
                 makeCall();
             }
-            // Let all other keys work normally in input fields
             return;
         }
 
-        // Global shortcuts (only when not in an input field)
         if (/^[0-9*#]$/.test(e.key)) {
             e.preventDefault();
             addDigit(e.key);
-            displayInput.focus(); // Focus the input after adding digit
+            displayInput.focus();
         }
         if (e.key === 'Backspace' || e.key === 'Delete') {
             e.preventDefault();
@@ -432,10 +453,8 @@ async function makeCall() {
         return;
     }
 
-    // Clean and validate phone number
     let cleanNumber = currentNumber.replace(/\D/g, '');
 
-    // Remove leading 1 if 11 digits
     if (cleanNumber.length === 11 && cleanNumber[0] === '1') {
         cleanNumber = cleanNumber.substring(1);
     }
@@ -456,7 +475,6 @@ async function makeCall() {
         document.getElementById('dispositionBtn').disabled = false;
         document.getElementById('pauseBtn').disabled = false;
 
-        // Show call info
         document.getElementById('callInfo').classList.add('active');
         document.getElementById('callingNumber').textContent = formatPhoneNumber(cleanNumber);
 
@@ -481,7 +499,6 @@ async function hangupCall() {
         stopCallTimer();
         showNotification(result.message, 'success');
 
-        // Auto-show disposition modal
         showDispositionModal();
     } else {
         showNotification('Hangup failed: ' + result.message, 'error');
@@ -571,7 +588,6 @@ async function setDisposition(code) {
         clearNumber();
         showNotification(`Disposition set: ${code}`, 'success');
 
-        // Auto-pause after disposition
         setTimeout(() => {
             pauseAgent();
         }, 500);
