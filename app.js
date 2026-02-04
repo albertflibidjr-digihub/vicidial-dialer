@@ -589,7 +589,7 @@ async function setDisposition(code) {
         showNotification(`Disposition set: ${code}`, 'success');
 
         setTimeout(() => {
-            pauseAgentApi();
+            pauseAgent();
         }, 500);
     } else {
         showNotification('Failed to set disposition: ' + result.message, 'error');
