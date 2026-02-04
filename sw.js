@@ -1,7 +1,7 @@
 // Service Worker for VICIdial Dialer PWA
 const CACHE_NAME = 'vicidial-v1';
 const urlsToCache = [
-  './vicidial_app.html',
+  './index.html',
   './app.js',
   './manifest.json'
 ];
