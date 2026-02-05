@@ -159,7 +159,7 @@ function showLoginStatus(message, type) {
     if (type === 'success') {
         setTimeout(() => {
             statusDiv.classList.remove('active');
-        }, 2000);
+        }, 3000);
     }
 }
 
