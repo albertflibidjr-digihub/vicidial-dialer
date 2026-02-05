@@ -20,7 +20,7 @@ const GOOGLE_SHEETS_CONFIG = {
     // BLESSED Server Google Sheets Integration
     'https://vicidial.projems.com': {
         enabled: true,
-        apiUrl: 'https://script.google.com/macros/s/AKfycbzd6UQZTuTbtVikBL2tI2ZsHNrDMMroAFA500MgSK2RtpwXqj0m0oV91CAdu-NlCax7/exec' // ADD YOUR BLESSED GOOGLE SHEETS WEB APP URL HERE
+        apiUrl: 'https://script.google.com/a/blessednes.com/macros/s/AKfycbwnEdcp6TE2qCYON4zNVwdAYkjg3vNmAlwKwQWEx0C7JNLcIUM/exec' // ADD YOUR BLESSED GOOGLE SHEETS WEB APP URL HERE
     },
     
     // MAINGREEN Server Google Sheets Integration
@@ -44,3 +44,4 @@ const DISPOSITIONS = [
     { code: 'WN', description: 'Wrong Number' },
     { code: 'DC', description: 'Disconnected' }
 ];
+
