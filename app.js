@@ -271,6 +271,34 @@ async function hangupCallApi() {
     }
 }
 
+async function setDispositionApi(code) {
+    try {
+        const params = {
+            source: 'webdialpad',
+            user: agentInfo.user,
+            pass: agentInfo.password,
+            agent_user: agentInfo.user,
+            function: 'external_status',
+            value: code
+        };
+
+        const url = buildApiUrl(agentInfo.serverUrl, params);
+        const response = await makeApiRequest(url);
+        const text = await response.text();
+
+        console.log('VICIdial status response:', text);
+
+        if (text.includes('SUCCESS')) {
+            return { success: true, message: 'Disposition set' };
+        } else {
+            return { success: false, message: text };
+        }
+    } catch (error) {
+        console.error('Disposition error:', error);
+        return { success: false, message: error.message };
+    }
+}
+
 async function setDisposition(code) {
     closeDispositionModal();
     updateStatus('Setting...', 'status-calling');
