@@ -45,10 +45,12 @@
                     </div>
 
                     <div class="form-group">
-                        <label class="form-label">VICIdial Server URL</label>
-                        <input type="url" id="serverUrl" class="form-input"
-                               placeholder="https://vicidial.yourserver.com"
-                               value="https://vicidial.projems.com" required>
+                        <label class="form-label">VICIdial Server</label>
+                        <select id="serverUrl" class="form-input" required>
+                            <option value="">-- Select Server --</option>
+                            <option value="https://maingreendialer.projems.com">MAINGREEN</option>
+                            <option value="https://vicidial.projems.com" selected>BLESSED</option>
+                        </select>
                     </div>
 
                     <button type="submit" class="btn btn-primary">
@@ -112,4 +114,5 @@
     <script src="config.js"></script>
     <script src="app.js"></script>
 </body>
+
 </html>
