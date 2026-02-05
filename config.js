@@ -1,7 +1,7 @@
 // VICIdial Configuration
 const VICIDIAL_CONFIG = {
     // Default server URL - can be changed in login form
-    defaultServerUrl: 'https://vicidial.projems.com',
+    defaultServerUrl: 'https://maingreendialer.projems.com',
     
     // Campaign settings
     campaignId: 'TELE',
@@ -13,6 +13,21 @@ const VICIDIAL_CONFIG = {
     
     // Cache duration (30 minutes)
     cacheDuration: 30 * 60 * 1000
+};
+
+// Google Sheets Integration - SEPARATED BY SERVER
+const GOOGLE_SHEETS_CONFIG = {
+    // BLESSED Server Google Sheets Integration
+    'https://vicidial.projems.com': {
+        enabled: true,
+        apiUrl: 'https://script.google.com/macros/s/AKfycbzd6UQZTuTbtVikBL2tI2ZsHNrDMMroAFA500MgSK2RtpwXqj0m0oV91CAdu-NlCax7/exec' // ADD YOUR BLESSED GOOGLE SHEETS WEB APP URL HERE
+    },
+    
+    // MAINGREEN Server Google Sheets Integration
+    'https://maingreendialer.projems.com': {
+        enabled: false, // Disabled for now
+        apiUrl: '' // Will add MAINGREEN Google Sheets URL later
+    }
 };
 
 // Disposition codes
@@ -28,5 +43,4 @@ const DISPOSITIONS = [
     { code: 'DNQ', description: 'Does Not Qualified' },
     { code: 'WN', description: 'Wrong Number' },
     { code: 'DC', description: 'Disconnected' }
-
 ];
