@@ -42,8 +42,10 @@ const DISPOSITIONS = [
     { code: 'HU', description: 'Hangup' },
     { code: 'DNQ', description: 'Does Not Qualified' },
     { code: 'WN', description: 'Wrong Number' },
-    { code: 'DC', description: 'Disconnected' }
+    { code: 'DC', description: 'Disconnected' },
+    { code: 'TOO', description: 'TOO FAR' }
 ];
+
 
 
 
