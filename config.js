@@ -43,8 +43,12 @@ const DISPOSITIONS = [
     { code: 'DNQ', description: 'Does Not Qualified' },
     { code: 'WN', description: 'Wrong Number' },
     { code: 'DC', description: 'Disconnected' },
-    { code: 'TOO', description: 'TOO FAR' }
+    { code: 'DONE', description: 'Done Project' },
+    { code: 'TOO', description: 'TOO FAR' },
+    { code: 'DNT', description: 'DNTouch!' },
+    { code: 'BL', description: 'Business Number' },
 ];
+
 
 
 
