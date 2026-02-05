@@ -140,6 +140,13 @@ function showDialpad() {
     document.getElementById('agentNameDisplay').textContent =
         `👤 Agent: ${agentInfo.agentName}`;
 
+    // Show which server is connected
+    const serverName = agentInfo.serverUrl.includes('maingreen') ? 'MAINGREEN' : 'BLESSED';
+    document.getElementById('serverInfo').textContent = `Server: ${serverName}`;
+
+    // Update Google Sheets status indicator
+    updateGoogleSheetsStatus();
+
     // Focus on number input
     displayInput.focus();
 }
@@ -264,31 +271,53 @@ async function hangupCallApi() {
     }
 }
 
-async function setDispositionApi(code) {
-    try {
-        const params = {
-            source: 'webdialpad',
-            user: agentInfo.user,
-            pass: agentInfo.password,
-            agent_user: agentInfo.user,
-            function: 'external_status',
-            value: code
-        };
+async function setDisposition(code) {
+    closeDispositionModal();
+    updateStatus('Setting...', 'status-calling');
 
-        const url = buildApiUrl(agentInfo.serverUrl, params);
-        const response = await makeApiRequest(url);
-        const text = await response.text();
+    // Get the phone number that was called
+    const calledNumber = document.getElementById('callingNumber').textContent;
+    const cleanNumber = calledNumber.replace(/\D/g, '');
 
-        console.log('VICIdial status response:', text);
+    // Set disposition in VICIdial
+    const result = await setDispositionApi(code);
 
-        if (text.includes('SUCCESS')) {
-            return { success: true, message: 'Disposition set' };
+    if (result.success) {
+        updateStatus('Ready', 'status-ready');
+        document.getElementById('callBtn').disabled = false;
+        document.getElementById('dispositionBtn').disabled = true;
+        document.getElementById('callInfo').classList.remove('active');
+
+        showNotification(`Disposition set: ${code}`, 'success');
+
+        // Update Google Sheets (only if enabled for this server)
+        if (isGoogleSheetsEnabled()) {
+            const sheetsResult = await updateGoogleSheets(
+                cleanNumber,
+                code,
+                agentInfo.agentName
+            );
+
+            if (sheetsResult.success) {
+                showNotification(`✓ Google Sheets updated: ${code}`, 'success');
+            } else if (!sheetsResult.skipped) {
+                console.warn('Google Sheets update failed:', sheetsResult.message);
+                showNotification(`⚠ Disposition set but Sheets update failed`, 'warning');
+            }
+            // If skipped, don't show any notification - it's expected
         } else {
-            return { success: false, message: text };
+            // Google Sheets not enabled for this server
+            console.log('Google Sheets integration disabled for this server');
         }
-    } catch (error) {
-        console.error('Disposition error:', error);
-        return { success: false, message: error.message };
+
+        clearNumber();
+
+        // Auto-pause after disposition (with delay)
+        setTimeout(() => {
+            pauseAgent();
+        }, 2000);
+    } else {
+        showNotification('Failed to set disposition: ' + result.message, 'error');
     }
 }
 
@@ -612,4 +641,100 @@ function resetDialpad() {
     document.getElementById('callInfo').classList.remove('active');
 
     isPaused = false;
+}
+
+function updateGoogleSheetsStatus() {
+    const statusElement = document.getElementById('sheetsStatus');
+
+    if (statusElement && agentInfo) {
+        const config = GOOGLE_SHEETS_CONFIG[agentInfo.serverUrl];
+        const serverName = agentInfo.serverUrl.includes('maingreen') ? 'MAINGREEN' : 'BLESSED';
+
+        if (config && config.enabled && config.apiUrl) {
+            statusElement.textContent = `📊 Sheets: ON (${serverName})`;
+            statusElement.className = 'sheets-status enabled';
+        } else {
+            statusElement.textContent = `📊 Sheets: OFF (${serverName})`;
+            statusElement.className = 'sheets-status disabled';
+        }
+    }
+}
+
+/**
+ * These are the complete helper functions - ADD TO YOUR app.js:
+ */
+
+// Get Google Sheets configuration for current server
+function getGoogleSheetsConfig() {
+    if (!agentInfo || !agentInfo.serverUrl) {
+        return null;
+    }
+
+    const config = GOOGLE_SHEETS_CONFIG[agentInfo.serverUrl];
+    return config;
+}
+
+// Check if Google Sheets integration is enabled for current server
+function isGoogleSheetsEnabled() {
+    const config = getGoogleSheetsConfig();
+    return config && config.enabled && config.apiUrl;
+}
+
+// Get the Google Sheets API URL for current server
+function getGoogleSheetsUrl() {
+    const config = getGoogleSheetsConfig();
+    return config && config.enabled ? config.apiUrl : null;
+}
+
+// Send disposition update to Google Sheets (if enabled for this server)
+async function updateGoogleSheets(phoneNumber, dispositionCode, agentName) {
+    // Check if Google Sheets integration is enabled for this server
+    if (!isGoogleSheetsEnabled()) {
+        console.log('Google Sheets integration not enabled for server:', agentInfo.serverUrl);
+        return {
+            success: false,
+            message: 'Google Sheets not configured for this server',
+            skipped: true
+        };
+    }
+
+    const apiUrl = getGoogleSheetsUrl();
+
+    if (!apiUrl) {
+        console.log('Google Sheets API URL not configured');
+        return {
+            success: false,
+            message: 'API URL not configured',
+            skipped: true
+        };
+    }
+
+    try {
+        const payload = {
+            phoneNumber: phoneNumber,
+            disposition: dispositionCode,
+            agentName: agentName,
+            server: agentInfo.serverUrl,
+            timestamp: new Date().toISOString()
+        };
+
+        console.log('Sending to Google Sheets:', payload);
+
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload)
+        });
+
+        const result = await response.json();
+        console.log('Google Sheets update result:', result);
+
+        return result;
+
+    } catch (error) {
+        console.error('Google Sheets update error:', error);
+        return { success: false, message: error.message };
+    }
 }
