@@ -5,6 +5,38 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VICIdial Dialpad</title>
     <link rel="stylesheet" href="styles.css">
+    <style>
+        /* Google Sheets Status Indicator */
+        .sheets-status {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-left: 10px;
+            font-weight: 500;
+        }
+        .sheets-status.enabled {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .sheets-status.disabled {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .header-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        .server-info {
+            font-size: 11px;
+            color: #666;
+            margin-top: 5px;
+        }
+    </style>
 </head>
 <body>
     <div class="container">
@@ -49,8 +81,11 @@
                         <select id="serverUrl" class="form-input" required>
                             <option value="">-- Select Server --</option>
                             <option value="https://maingreendialer.projems.com">MAINGREEN</option>
-                            <option value="https://vicidial.projems.com" selected>BLESSED</option>
+                            <option value="https://vicidial.projems.com">BLESSED</option>
                         </select>
+                        <div class="form-hint">
+                            <strong>Note:</strong> Google Sheets integration is only enabled for BLESSED
+                        </div>
                     </div>
 
                     <button type="submit" class="btn btn-primary">
@@ -63,12 +98,18 @@
         <!-- Dialpad Screen -->
         <div id="dialpadScreen" class="screen">
             <div class="header">
-                <h2>📞 Dialpad</h2>
-                <div id="agentInfo" class="agent-info">
-                    <span id="agentNameDisplay">Agent</span>
+                <div class="header-row">
+                    <h2>📞 Dialpad</h2>
+                    <button class="btn-logout" onclick="logout()">🚪 Logout</button>
                 </div>
-                <div class="status-badge status-ready" id="statusBadge">Ready</div>
-                <button class="btn-logout" onclick="logout()">🚪 Logout</button>
+                <div class="header-row">
+                    <div id="agentInfo" class="agent-info">
+                        <span id="agentNameDisplay">Agent</span>
+                        <span id="sheetsStatus" class="sheets-status disabled">📊 Google Sheets: Disabled</span>
+                    </div>
+                    <div class="status-badge status-ready" id="statusBadge">Ready</div>
+                </div>
+                <div class="server-info" id="serverInfo">Server: Not connected</div>
             </div>
 
             <div class="call-info" id="callInfo">
