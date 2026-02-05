@@ -602,29 +602,6 @@ function closeDispositionModal() {
     document.getElementById('dispositionModal').classList.remove('active');
 }
 
-async function setDisposition(code) {
-    closeDispositionModal();
-    updateStatus('Setting...', 'status-calling');
-
-    const result = await setDispositionApi(code);
-
-    if (result.success) {
-        updateStatus('Ready', 'status-ready');
-        document.getElementById('callBtn').disabled = false;
-        document.getElementById('dispositionBtn').disabled = true;
-        document.getElementById('callInfo').classList.remove('active');
-
-        clearNumber();
-        showNotification(`Disposition set: ${code}`, 'success');
-
-        setTimeout(() => {
-            pauseAgent();
-        }, 2000);
-    } else {
-        showNotification('Failed to set disposition: ' + result.message, 'error');
-    }
-}
-
 // ============================================
 // Reset & Cleanup
 // ============================================
