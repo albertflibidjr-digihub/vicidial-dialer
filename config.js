@@ -22,5 +22,11 @@ const DISPOSITIONS = [
     { code: 'A', description: 'Voice Message' },
     { code: 'DNC', description: 'Do Not Call' },
     { code: 'CALLBK', description: 'Call Back' },
-    { code: 'NI', description: 'Not Interested' }
+    { code: 'NI', description: 'Not Interested' },
+    { code: 'ESP', description: 'Spanish' },
+    { code: 'HU', description: 'Hangup' },
+    { code: 'DNQ', description: 'Does Not Qualified' },
+    { code: 'WN', description: 'Wrong Number' },
+    { code: 'DC', description: 'Disconnected' }
+
 ];
