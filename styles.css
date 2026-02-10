@@ -15,14 +15,8 @@ body {
 }
 
 .container {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    z-index: 999999;
-    background: #f5f6fa; /* or transparent if you want */
-    overflow: hidden;
+    width: 100%;
+    max-width: 400px;
 }
 
 .screen {
@@ -462,3 +456,4 @@ body {
     }
 
 }
+
